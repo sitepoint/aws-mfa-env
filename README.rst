@@ -8,8 +8,8 @@ aws-mfa-env
 .. _`Adam Bolte`: https://www.sitepoint.com/author/adam-bolte/
 
 This is a small Bash script that gives the user the ability to quickly
-obtain AWS session credentials as shell environment variables using
-IAM access keys that are restricted otherwise heavily restricted.
+obtain AWS session credentials as shell environment variables, using
+heavily restricted IAM access keys and a MFA device.
 
 For example, a user might have a Deny policy as detailed here:
 https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_examples_aws_my-sec-creds-self-manage-mfa-only.html
