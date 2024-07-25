@@ -1,0 +1,129 @@
+#!/bin/bin/env bash
+#
+# Copyright 2024 SitePoint Pty Ltd.
+# Author: Adam Bolte <adam.bolte@sitepoint.com>
+
+
+function __aws_mfa_pre_exec_checks()
+{
+    if [ -z "${AWS_MFA_ARN}" ]
+    then
+        {
+            echo "Please set the AWS_MFA_ARN environment variable to your "
+            echo "MFA identifier."
+            echo
+            echo "You can find this information on your IAM user page under "
+            echo "the \`Security credentials\` tab, with the format:"
+            echo "arn:aws:iam::<AWS ACCOUNT>:mfa/<IAM USER>"
+        } 1>&2
+        return 1
+    fi
+    
+    for dep_cmd in jq aws
+    do
+        if ! command -v "${dep_cmd}" 1>/dev/null
+        then
+            echo "Please install \`${dep_cmd}\`." 1>&2
+            return 1
+        fi
+    done
+
+    if [ -z "${AWS_ACCESS_KEY_ID}" ] || [ -z "${AWS_SECRET_ACCESS_KEY}" ]
+    then
+        echo "AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY are not set!" 1>&2
+        return 1
+    fi
+}
+
+
+function __aws_mfa_is_mfa_token_valid()
+{
+    local mfa_token="${1}"
+    [ "${#mfa_token}" -ne 6 ] || ! echo "${mfa_token}" | grep -q '^[0-9]\{6\}$'
+}
+
+
+function __aws_mfa_get_mfa_token()
+{
+    local mfa_token=""
+    while __aws_mfa_is_mfa_token_valid "${mfa_token}"
+    do
+        read -p "MFA token: " -r mfa_token
+        if [ -z "${mfa_token}" ]
+        then
+            echo "Please enter your six-digit code from your MFA device." 1>&2
+        elif __aws_mfa_is_mfa_token_valid "${mfa_token}"
+        then
+            echo "Invalid token entered." 1>&2
+        fi
+    done
+    echo "${mfa_token}"
+
+}
+
+
+function __aws_mfa_export_credential_env_vars()
+{
+    local credentials_json="${1}"    
+    AWS_ACCESS_KEY_ID="$(
+        echo "${credentials_json}" | jq -r '.Credentials.AccessKeyId'
+    )"
+    AWS_SECRET_ACCESS_KEY="$(
+        echo "${credentials_json}" | jq -r '.Credentials.SecretAccessKey'
+    )"
+    AWS_SESSION_TOKEN="$(
+        echo "${credentials_json}" | jq -r '.Credentials.SessionToken'
+    )"
+    export AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN
+}
+
+
+function __aws_mfa_get_expiration_timestamp()
+{
+    local credentials_json="${1}"
+    echo "${credentials_json}" | jq '.Credentials.Expiration'
+}
+
+
+function __aws_mfa_check_status_with_error()
+{
+    if [ ${?} -ne 0 ]
+    then
+        echo "Failed to get credentials." 1>&2
+        return 1
+    fi
+}
+
+
+function aws-mfa-env()
+{
+    local mfa_token=""
+    local credentials_json=""
+    local expiration_timestamp=""
+
+    __aws_mfa_pre_exec_checks || return 1
+
+    mfa_token="$(__aws_mfa_get_mfa_token)"
+    __aws_mfa_check_status_with_error || return 1
+
+    credentials_json="$(aws --output json sts get-session-token \
+        --serial-number "${AWS_MFA_ARN}" \
+        --token-code "${mfa_token}"
+    )"
+    __aws_mfa_check_status_with_error || return 1
+
+    __aws_mfa_export_credential_env_vars "${credentials_json}"
+    __aws_mfa_check_status_with_error || return 1
+    
+    expiration_timestamp="$(
+        __aws_mfa_get_expiration_timestamp "${credentials_json}"
+    )"
+    __aws_mfa_check_status_with_error || return 1
+
+    echo "Success!"
+    echo "Expiration: ${expiration_timestamp}"
+}
+
+
+(return 0 2>/dev/null) ||
+    echo "Please do not execute this script directly." 1>&2
