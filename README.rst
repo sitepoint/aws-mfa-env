@@ -77,10 +77,10 @@ This will set new values for the environment variables
 new environment variable ``AWS_SESSION_TOKEN``. With these in place,
 you can now execute other commands from the AWS Command Line Interface
 (aka. aws-cli) or scripts that use libraries provided by AWS (such as
-Python scripts that use boto3).
+Python scripts that use boto3), provided you have the appropriate
+permissions to do so.
 
-At no point does aws-mfa-env write the
-session credentials to a file.
+At no point does aws-mfa-env write the session credentials to a file.
 
 
 
