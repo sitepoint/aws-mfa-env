@@ -9,10 +9,10 @@ function __aws_mfa_pre_exec_checks()
     if [ -z "${AWS_MFA_ARN}" ]
     then
         {
-            echo "Please set the AWS_MFA_ARN environment variable to your "
+            echo "Please set the AWS_MFA_ARN environment variable to your"
             echo "MFA identifier."
             echo
-            echo "You can find this information on your IAM user page under "
+            echo "You can find this information on your IAM user page under"
             echo "the \`Security credentials\` tab, with the format:"
             echo "arn:aws:iam::<AWS ACCOUNT>:mfa/<IAM USER>"
         } 1>&2
@@ -31,6 +31,19 @@ function __aws_mfa_pre_exec_checks()
     if [ -z "${AWS_ACCESS_KEY_ID}" ] || [ -z "${AWS_SECRET_ACCESS_KEY}" ]
     then
         echo "AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY are not set!" 1>&2
+        return 1
+    fi
+
+    if [ -n "${AWS_SESSION_TOKEN}" ]
+    then
+        {
+            echo "AWS_SESSION_TOKEN is already set!"
+            echo
+            echo "If your MFA session has expired, please unset"
+            echo "AWS_SESSION_TOKEN and reset AWS_ACCESS_KEY_ID and"
+            echo "AWS_SECRET_ACCESS_KEY to your normal IAM account access key"
+            echo "values."
+        } 1>&2
         return 1
     fi
 }
