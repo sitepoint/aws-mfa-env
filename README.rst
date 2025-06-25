@@ -11,8 +11,10 @@ This is a small Bash script that gives the user the ability to quickly
 obtain AWS session credentials as shell environment variables, using
 heavily restricted IAM access keys and a MFA device.
 
-For example, a user might have a Deny policy as detailed here:
-https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_examples_aws_my-sec-creds-self-manage-mfa-only.html
+For example, a user might have a policy applied to deny nearly any
+service access until the user has enabled MFA, as described by Amazon
+`here
+<https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_examples_aws_my-sec-creds-self-manage-mfa-only.html>`__.
 
 
 Project page
@@ -34,9 +36,10 @@ Requirements
 .. _GNU grep: https://www.gnu.org/software/grep/
 .. _jq: https://jqlang.github.io/jq/
 
-These are the dependencies that were tested, and all but AWS Command
-Line Interface should be available in almost any desktop or server
-GNU/Linux distribution's package management system.
+These are the dependencies that were tested, and all with the possible
+exception of the AWS Command Line Interface (AWS CLI) should be
+available in almost any desktop or server GNU/Linux distribution's
+package management system.
 
 
 Setup
@@ -92,3 +95,13 @@ free to open an issue on GitHub, however please be patent with a
 response.
 
 Likewise, pull requests are also welcome.
+
+
+
+Related
+=======
+
+If you like this project, you might also find `envswitch`_
+useful. These are both stand-alone tools but work very well together.
+
+.. _envswitch: https://github.com/sitepoint/envswitch
