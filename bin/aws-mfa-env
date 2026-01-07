@@ -6,6 +6,15 @@
 
 function __aws_mfa_pre_exec_checks()
 {
+    for dep_cmd in jq aws
+    do
+        if ! command -v "${dep_cmd}" 1>/dev/null
+        then
+            echo "Please install \`${dep_cmd}\`." 1>&2
+            return 1
+        fi
+    done
+
     if [ -z "${AWS_MFA_ARN}" ]
     then
         {
@@ -18,20 +27,15 @@ function __aws_mfa_pre_exec_checks()
         } 1>&2
         return 1
     fi
-    
-    for dep_cmd in jq aws
-    do
-        if ! command -v "${dep_cmd}" 1>/dev/null
+
+    if [ -z "${AWS_PROFILE}" ]
+    then
+
+        if [ -z "${AWS_ACCESS_KEY_ID}" ] || [ -z "${AWS_SECRET_ACCESS_KEY}" ]
         then
-            echo "Please install \`${dep_cmd}\`." 1>&2
+            echo "AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY are not set!" 1>&2
             return 1
         fi
-    done
-
-    if [ -z "${AWS_ACCESS_KEY_ID}" ] || [ -z "${AWS_SECRET_ACCESS_KEY}" ]
-    then
-        echo "AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY are not set!" 1>&2
-        return 1
     fi
 
     if [ -n "${AWS_SESSION_TOKEN}" ]
@@ -40,9 +44,14 @@ function __aws_mfa_pre_exec_checks()
             echo "AWS_SESSION_TOKEN is already set!"
             echo
             echo "If your MFA session has expired, please unset"
-            echo "AWS_SESSION_TOKEN and reset AWS_ACCESS_KEY_ID and"
-            echo "AWS_SECRET_ACCESS_KEY to your normal IAM account access key"
-            echo "values."
+            if [ -n "${AWS_ACCESS_KEY_ID}" ] || [ -n "${AWS_SECRET_ACCESS_KEY}" ]
+            then
+                echo "AWS_SESSION_TOKEN and reset AWS_ACCESS_KEY_ID and"
+                echo "AWS_SECRET_ACCESS_KEY to your normal IAM account access"
+                echo "key values."
+            else
+                echo "AWS_SESSION_TOKEN."
+            fi
         } 1>&2
         return 1
     fi
