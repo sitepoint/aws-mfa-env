@@ -118,6 +118,27 @@ function __aws_mfa_export_credential_env_vars()
 }
 
 
+function __aws_mfa_generate_credentials_file() {
+    local credentials_json="${1}"
+    local profile="${AWS_PROFILE-default}"
+    jq_filter="$(cat <<EOF
+.Credentials |
+"[${profile}]
+aws_access_key_id = \(.AccessKeyId)
+aws_secret_access_key = \(.SecretAccessKey)
+aws_session_token = \(.SessionToken)"
+EOF
+)"
+    if [ ! -d "${HOME}/.aws" ]
+    then
+        mkdir -m 0700 "${HOME}/.aws"
+    fi
+    echo "${credentials_json}" |
+        jq -r "${jq_filter}" |
+        install -m 600 /dev/stdin "${HOME}/.aws/credentials"
+}
+
+
 function __aws_assume_role() {
     local role_creds_json
     local -a aws_get_token_args
@@ -177,7 +198,14 @@ function aws-mfa-env()
 
     __aws_mfa_export_credential_env_vars "${credentials_json}"
     __aws_mfa_check_status_with_error || return 1
-    
+
+    # Set AWS_MFA_ENV_WRITE_CREDENTIALS=1 to overwrite ~/.aws/credentials.
+    if [ "${AWS_PROFILE}" ] && [ "${AWS_MFA_ENV_WRITE_CREDENTIALS}" = "1" ]
+    then
+        __aws_mfa_generate_credentials_file "${credentials_json}"
+    fi
+    __aws_mfa_check_status_with_error || return 1
+
     expiration_timestamp="$(
         __aws_mfa_get_expiration_timestamp "${credentials_json}"
     )"
