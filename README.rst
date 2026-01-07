@@ -88,6 +88,13 @@ unless requested by setting ``AWS_PROFILE`` and
 ``AWS_MFA_ENV_WRITE_CREDENTIALS=1`` (in which case it will overwrite
 the contents of ``~/.aws/credentials``).
 
+If permissions are assigned to a role that the user must switch to,
+aws-mfa-env will attempt to take care of this automatically if
+``AME_AWS_ROLE_ARN`` (and optionally ``AME_AWS_ROLE_SESSION_NAME``)
+are set. The values for these should be set to the `AWS equivalents
+<https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-envvars.html>`__
+(that have the same name minus the "AME_" prefix).
+
 
 
 Issues
