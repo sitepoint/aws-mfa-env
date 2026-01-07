@@ -203,8 +203,8 @@ function aws-mfa-env()
     if [ "${AWS_PROFILE}" ] && [ "${AWS_MFA_ENV_WRITE_CREDENTIALS}" = "1" ]
     then
         __aws_mfa_generate_credentials_file "${credentials_json}"
+        __aws_mfa_check_status_with_error || return 1
     fi
-    __aws_mfa_check_status_with_error || return 1
 
     expiration_timestamp="$(
         __aws_mfa_get_expiration_timestamp "${credentials_json}"
