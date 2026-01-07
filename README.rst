@@ -83,7 +83,10 @@ you can now execute other commands from the AWS Command Line Interface
 Python scripts that use boto3), provided you have the appropriate
 permissions to do so.
 
-At no point does aws-mfa-env write the session credentials to a file.
+At no point does aws-mfa-env write the session credentials to a file,
+unless requested by setting ``AWS_PROFILE`` and
+``AWS_MFA_ENV_WRITE_CREDENTIALS=1`` (in which case it will overwrite
+the contents of ``~/.aws/credentials``).
 
 
 
