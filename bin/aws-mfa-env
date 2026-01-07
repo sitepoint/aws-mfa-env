@@ -118,6 +118,32 @@ function __aws_mfa_export_credential_env_vars()
 }
 
 
+function __aws_assume_role() {
+    local role_creds_json
+    local -a aws_get_token_args
+    aws_assume_role_args=(
+        --output json
+        sts assume-role
+        --role-arn "${AME_AWS_ROLE_ARN}"
+    )
+    if [ -n "${AME_AWS_ROLE_SESSION_NAME}" ]
+    then
+        aws_assume_role_args+=( --role-session-name "${AME_AWS_ROLE_SESSION_NAME}" )
+    fi
+    role_creds_json="$(aws "${aws_assume_role_args[@]}")"
+    AWS_ACCESS_KEY_ID="$(
+        echo "${role_creds_json}" | jq -r '.Credentials.AccessKeyId'
+    )"
+    AWS_SECRET_ACCESS_KEY="$(
+        echo "${role_creds_json}" | jq -r '.Credentials.SecretAccessKey'
+    )"
+    AWS_SESSION_TOKEN="$(
+        echo "${role_creds_json}" | jq -r '.Credentials.SessionToken'
+    )"
+    export AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN
+}
+
+
 function __aws_mfa_get_expiration_timestamp()
 {
     local credentials_json="${1}"
@@ -156,6 +182,12 @@ function aws-mfa-env()
         __aws_mfa_get_expiration_timestamp "${credentials_json}"
     )"
     __aws_mfa_check_status_with_error || return 1
+
+    if [ -n "${AME_AWS_ROLE_ARN}" ]
+    then
+        __aws_assume_role
+        __aws_mfa_check_status_with_error || return 1
+    fi
 
     echo "Success!"
     echo "Expiration: ${expiration_timestamp}"
