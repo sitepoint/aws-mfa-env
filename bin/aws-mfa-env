@@ -162,6 +162,7 @@ function __aws_assume_role() {
         echo "${role_creds_json}" | jq -r '.Credentials.SessionToken'
     )"
     export AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN
+    echo "${role_creds_json}"
 }
 
 
@@ -199,13 +200,6 @@ function aws-mfa-env()
     __aws_mfa_export_credential_env_vars "${credentials_json}"
     __aws_mfa_check_status_with_error || return 1
 
-    # Set AWS_MFA_ENV_WRITE_CREDENTIALS=1 to overwrite ~/.aws/credentials.
-    if [ "${AWS_PROFILE}" ] && [ "${AWS_MFA_ENV_WRITE_CREDENTIALS}" = "1" ]
-    then
-        __aws_mfa_generate_credentials_file "${credentials_json}"
-        __aws_mfa_check_status_with_error || return 1
-    fi
-
     expiration_timestamp="$(
         __aws_mfa_get_expiration_timestamp "${credentials_json}"
     )"
@@ -213,7 +207,15 @@ function aws-mfa-env()
 
     if [ -n "${AME_AWS_ROLE_ARN}" ]
     then
-        __aws_assume_role
+        echo "Assuming role ${AME_AWS_ROLE_ARN#*/}."
+        credentials_json="$(__aws_assume_role)"
+        __aws_mfa_check_status_with_error || return 1
+    fi
+
+    # Set AWS_MFA_ENV_WRITE_CREDENTIALS=1 to overwrite ~/.aws/credentials.
+    if [ "${AWS_MFA_ENV_WRITE_CREDENTIALS}" = "1" ]
+    then
+        __aws_mfa_generate_credentials_file "${credentials_json}"
         __aws_mfa_check_status_with_error || return 1
     fi
 
