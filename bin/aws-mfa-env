@@ -1,11 +1,20 @@
 #!/bin/bin/env bash
 #
-# Copyright 2024 SitePoint Pty Ltd.
+# Copyright 2024,2026 SitePoint Pty Ltd.
 # Author: Adam Bolte <adam.bolte@sitepoint.com>
 
 
 function __aws_mfa_pre_exec_checks()
 {
+    for dep_cmd in jq aws
+    do
+        if ! command -v "${dep_cmd}" 1>/dev/null
+        then
+            echo "Please install \`${dep_cmd}\`." 1>&2
+            return 1
+        fi
+    done
+
     if [ -z "${AWS_MFA_ARN}" ]
     then
         {
@@ -18,20 +27,15 @@ function __aws_mfa_pre_exec_checks()
         } 1>&2
         return 1
     fi
-    
-    for dep_cmd in jq aws
-    do
-        if ! command -v "${dep_cmd}" 1>/dev/null
+
+    if [ -z "${AWS_PROFILE}" ]
+    then
+
+        if [ -z "${AWS_ACCESS_KEY_ID}" ] || [ -z "${AWS_SECRET_ACCESS_KEY}" ]
         then
-            echo "Please install \`${dep_cmd}\`." 1>&2
+            echo "AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY are not set!" 1>&2
             return 1
         fi
-    done
-
-    if [ -z "${AWS_ACCESS_KEY_ID}" ] || [ -z "${AWS_SECRET_ACCESS_KEY}" ]
-    then
-        echo "AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY are not set!" 1>&2
-        return 1
     fi
 
     if [ -n "${AWS_SESSION_TOKEN}" ]
@@ -40,9 +44,14 @@ function __aws_mfa_pre_exec_checks()
             echo "AWS_SESSION_TOKEN is already set!"
             echo
             echo "If your MFA session has expired, please unset"
-            echo "AWS_SESSION_TOKEN and reset AWS_ACCESS_KEY_ID and"
-            echo "AWS_SECRET_ACCESS_KEY to your normal IAM account access key"
-            echo "values."
+            if [ -n "${AWS_ACCESS_KEY_ID}" ] || [ -n "${AWS_SECRET_ACCESS_KEY}" ]
+            then
+                echo "AWS_SESSION_TOKEN and reset AWS_ACCESS_KEY_ID and"
+                echo "AWS_SECRET_ACCESS_KEY to your normal IAM account access"
+                echo "key values."
+            else
+                echo "AWS_SESSION_TOKEN."
+            fi
         } 1>&2
         return 1
     fi
@@ -75,9 +84,27 @@ function __aws_mfa_get_mfa_token()
 }
 
 
+function __aws_mfa_get_mfa_session()
+{
+    local mfa_token="${1}"
+    local -a aws_get_token_args
+    aws_get_token_args=(
+        --output json
+        sts get-session-token
+        --serial-number "${AWS_MFA_ARN}"
+        --token-code "${mfa_token}"
+    )
+    if [ -n "${AWS_PROFILE}" ]
+    then
+        aws_get_token_args+=( --profile "${AWS_PROFILE}" )
+    fi
+    aws "${aws_get_token_args[@]}"
+}
+
+
 function __aws_mfa_export_credential_env_vars()
 {
-    local credentials_json="${1}"    
+    local credentials_json="${1}"
     AWS_ACCESS_KEY_ID="$(
         echo "${credentials_json}" | jq -r '.Credentials.AccessKeyId'
     )"
@@ -88,6 +115,54 @@ function __aws_mfa_export_credential_env_vars()
         echo "${credentials_json}" | jq -r '.Credentials.SessionToken'
     )"
     export AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN
+}
+
+
+function __aws_mfa_generate_credentials_file() {
+    local credentials_json="${1}"
+    local profile="${AWS_PROFILE-default}"
+    jq_filter="$(cat <<EOF
+.Credentials |
+"[${profile}]
+aws_access_key_id = \(.AccessKeyId)
+aws_secret_access_key = \(.SecretAccessKey)
+aws_session_token = \(.SessionToken)"
+EOF
+)"
+    if [ ! -d "${HOME}/.aws" ]
+    then
+        mkdir -m 0700 "${HOME}/.aws"
+    fi
+    echo "${credentials_json}" |
+        jq -r "${jq_filter}" |
+        install -m 600 /dev/stdin "${HOME}/.aws/credentials"
+}
+
+
+function __aws_assume_role() {
+    local role_creds_json
+    local -a aws_get_token_args
+    aws_assume_role_args=(
+        --output json
+        sts assume-role
+        --role-arn "${AME_AWS_ROLE_ARN}"
+    )
+    if [ -n "${AME_AWS_ROLE_SESSION_NAME}" ]
+    then
+        aws_assume_role_args+=( --role-session-name "${AME_AWS_ROLE_SESSION_NAME}" )
+    fi
+    role_creds_json="$(aws "${aws_assume_role_args[@]}")"
+    AWS_ACCESS_KEY_ID="$(
+        echo "${role_creds_json}" | jq -r '.Credentials.AccessKeyId'
+    )"
+    AWS_SECRET_ACCESS_KEY="$(
+        echo "${role_creds_json}" | jq -r '.Credentials.SecretAccessKey'
+    )"
+    AWS_SESSION_TOKEN="$(
+        echo "${role_creds_json}" | jq -r '.Credentials.SessionToken'
+    )"
+    export AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN
+    echo "${role_creds_json}"
 }
 
 
@@ -119,19 +194,30 @@ function aws-mfa-env()
     mfa_token="$(__aws_mfa_get_mfa_token)"
     __aws_mfa_check_status_with_error || return 1
 
-    credentials_json="$(aws --output json sts get-session-token \
-        --serial-number "${AWS_MFA_ARN}" \
-        --token-code "${mfa_token}"
-    )"
+    credentials_json="$(__aws_mfa_get_mfa_session "${mfa_token}")"
     __aws_mfa_check_status_with_error || return 1
 
     __aws_mfa_export_credential_env_vars "${credentials_json}"
     __aws_mfa_check_status_with_error || return 1
-    
+
     expiration_timestamp="$(
         __aws_mfa_get_expiration_timestamp "${credentials_json}"
     )"
     __aws_mfa_check_status_with_error || return 1
+
+    if [ -n "${AME_AWS_ROLE_ARN}" ]
+    then
+        echo "Assuming role ${AME_AWS_ROLE_ARN#*/}."
+        credentials_json="$(__aws_assume_role)"
+        __aws_mfa_check_status_with_error || return 1
+    fi
+
+    # Set AWS_MFA_ENV_WRITE_CREDENTIALS=1 to overwrite ~/.aws/credentials.
+    if [ "${AWS_MFA_ENV_WRITE_CREDENTIALS}" = "1" ]
+    then
+        __aws_mfa_generate_credentials_file "${credentials_json}"
+        __aws_mfa_check_status_with_error || return 1
+    fi
 
     echo "Success!"
     echo "Expiration: ${expiration_timestamp}"

@@ -59,8 +59,13 @@ Usage
 =====
 
 Ensure ``AWS_ACCESS_KEY_ID`` and ``AWS_SECRET_ACCESS_KEY`` environment
-variables are set. Additionally, set ``AWS_MFA_ARN`` to the ARN of
-your IAM account's MFA device. It will take this format:
+variables are set or, alternatively, use ``AWS_PROFILE`` to point to a
+profile that has these — ideally configured in ``~/.aws/config`` and
+not ``~/.aws/credentials`` (see the note about
+``AWS_MFA_ENV_WRITE_CREDENTIALS`` below).
+
+In addition, set ``AWS_MFA_ARN`` to the ARN of your IAM account's MFA
+device. It will take this format:
 
 ``arn:aws:iam::<AWS ACCOUNT>:mfa/<IAM USER>``
 
@@ -83,7 +88,21 @@ you can now execute other commands from the AWS Command Line Interface
 Python scripts that use boto3), provided you have the appropriate
 permissions to do so.
 
-At no point does aws-mfa-env write the session credentials to a file.
+At no point does aws-mfa-env write the session credentials to a file,
+unless requested by setting ``AWS_MFA_ENV_WRITE_CREDENTIALS=1`` (in
+which case it will overwrite ``~/.aws/credentials`` — use with
+caution!).
+
+
+Assume a role
+=============
+
+If permissions are assigned to a role that the user must assume,
+aws-mfa-env will attempt to take care of this automatically if
+``AME_AWS_ROLE_ARN`` (and optionally ``AME_AWS_ROLE_SESSION_NAME``)
+are set. The values for these should be set to the `AWS equivalents
+<https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-envvars.html>`__
+(that have the same name minus the ``AME_`` prefix).
 
 
 
