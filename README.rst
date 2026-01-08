@@ -59,8 +59,13 @@ Usage
 =====
 
 Ensure ``AWS_ACCESS_KEY_ID`` and ``AWS_SECRET_ACCESS_KEY`` environment
-variables are set. Additionally, set ``AWS_MFA_ARN`` to the ARN of
-your IAM account's MFA device. It will take this format:
+variables are set or, alternatively, use ``AWS_PROFILE`` to point to a
+profile that has these — ideally configured in ``~/.aws/config`` and
+not ``~/.aws/credentials`` (see the note about
+``AWS_MFA_ENV_WRITE_CREDENTIALS`` below).
+
+In addition, set ``AWS_MFA_ARN`` to the ARN of your IAM account's MFA
+device. It will take this format:
 
 ``arn:aws:iam::<AWS ACCOUNT>:mfa/<IAM USER>``
 
@@ -84,9 +89,9 @@ Python scripts that use boto3), provided you have the appropriate
 permissions to do so.
 
 At no point does aws-mfa-env write the session credentials to a file,
-unless requested by setting ``AWS_PROFILE`` and
-``AWS_MFA_ENV_WRITE_CREDENTIALS=1`` (in which case it will overwrite
-the contents of ``~/.aws/credentials``).
+unless requested by setting ``AWS_MFA_ENV_WRITE_CREDENTIALS=1`` (in
+which case it will overwrite ``~/.aws/credentials`` — use with
+caution!).
 
 If permissions are assigned to a role that the user must switch to,
 aws-mfa-env will attempt to take care of this automatically if
