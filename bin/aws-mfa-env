@@ -140,7 +140,6 @@ EOF
 
 
 function __aws_assume_role() {
-    local role_creds_json
     local -a aws_get_token_args
     aws_assume_role_args=(
         --output json
@@ -151,18 +150,7 @@ function __aws_assume_role() {
     then
         aws_assume_role_args+=( --role-session-name "${AME_AWS_ROLE_SESSION_NAME}" )
     fi
-    role_creds_json="$(aws "${aws_assume_role_args[@]}")"
-    AWS_ACCESS_KEY_ID="$(
-        echo "${role_creds_json}" | jq -r '.Credentials.AccessKeyId'
-    )"
-    AWS_SECRET_ACCESS_KEY="$(
-        echo "${role_creds_json}" | jq -r '.Credentials.SecretAccessKey'
-    )"
-    AWS_SESSION_TOKEN="$(
-        echo "${role_creds_json}" | jq -r '.Credentials.SessionToken'
-    )"
-    export AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN
-    echo "${role_creds_json}"
+    aws "${aws_assume_role_args[@]}"
 }
 
 
@@ -209,6 +197,8 @@ function aws-mfa-env()
     then
         echo "Assuming role ${AME_AWS_ROLE_ARN#*/}."
         credentials_json="$(__aws_assume_role)"
+        __aws_mfa_check_status_with_error || return 1
+        __aws_mfa_export_credential_env_vars "${credentials_json}"
         __aws_mfa_check_status_with_error || return 1
     fi
 
