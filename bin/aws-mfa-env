@@ -140,7 +140,7 @@ EOF
 
 
 function __aws_assume_role() {
-    local -a aws_get_token_args
+    local -a aws_assume_role_args
     aws_assume_role_args=(
         --output json
         sts assume-role
