@@ -77,7 +77,7 @@ command.
   $ aws-mfa-env 
   MFA token: 123456
   Success!
-  Expiration: "2024-07-25T19:13:43+00:00"
+  Expiration: 2024-07-26 05:13:43 AEST
   $
 
 This will set new values for the environment variables
@@ -125,8 +125,8 @@ the MFA token with the request. This needs:
 
 Otherwise assuming the role will fail.
 
-When a role is assumed, the ``Expiration`` printed on success is that
-of the role's credentials.
+The ``Expiration`` printed on success is in local time. When a role
+is assumed, it is that of the role's credentials.
 
 
 

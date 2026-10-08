@@ -173,8 +173,24 @@ function __aws_assume_role() {
 
 function __aws_mfa_get_expiration_timestamp()
 {
+    # AWS returns the expiry in UTC; show it in local time, or as
+    # returned if it fails to parse.
     local credentials_json="${1}"
-    echo "${credentials_json}" | jq '.Credentials.Expiration'
+    local raw epoch format='+%Y-%m-%d %H:%M:%S %Z'
+    raw="$(echo "${credentials_json}" | jq -r '.Credentials.Expiration')"
+    if epoch="$(
+        echo "${raw}" |
+            jq -R 'sub("\\.[0-9]+"; "") | sub("(\\+00:00|Z)$"; "Z") | fromdateiso8601' \
+                2>/dev/null
+    )"
+    then
+        # GNU date takes -d @EPOCH; BSD (macOS) date takes -r EPOCH.
+        date -d "@${epoch}" "${format}" 2>/dev/null ||
+            date -r "${epoch}" "${format}" 2>/dev/null ||
+            echo "${raw}"
+    else
+        echo "${raw}"
+    fi
 }
 
 
