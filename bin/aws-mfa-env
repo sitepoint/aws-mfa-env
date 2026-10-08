@@ -200,6 +200,10 @@ function aws-mfa-env()
         __aws_mfa_check_status_with_error || return 1
         __aws_mfa_export_credential_env_vars "${credentials_json}"
         __aws_mfa_check_status_with_error || return 1
+        expiration_timestamp="$(
+            __aws_mfa_get_expiration_timestamp "${credentials_json}"
+        )"
+        __aws_mfa_check_status_with_error || return 1
     fi
 
     # Set AWS_MFA_ENV_WRITE_CREDENTIALS=1 to overwrite ~/.aws/credentials.
