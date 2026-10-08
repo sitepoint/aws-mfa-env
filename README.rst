@@ -77,7 +77,7 @@ command.
   $ aws-mfa-env 
   MFA token: 123456
   Success!
-  Expiration: "2024-07-25T19:13:43+00:00"
+  Expiration: 2024-07-26 05:13:43 AEST
   $
 
 This will set new values for the environment variables
@@ -103,6 +103,30 @@ aws-mfa-env will attempt to take care of this automatically if
 are set. The values for these should be set to the `AWS equivalents
 <https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-envvars.html>`__
 (that have the same name minus the ``AME_`` prefix).
+
+The role's credentials last 1 hour by default. By default the role is
+assumed with the MFA session's credentials, and AWS limits a role
+assumed that way to 1 hour, as it does for role chaining.
+
+To request a longer session, set ``AME_AWS_ROLE_DURATION_SECONDS`` to
+the number of seconds wanted (for example, ``28800`` for 8 hours; AWS
+allows up to ``43200``). aws-mfa-env then skips the MFA session and
+assumes the role directly with the user's own access keys, passing
+the MFA token with the request. This needs:
+
+* the role's maximum session duration raised to at least that value
+  (under "Maximum session duration" on the role's page in the IAM
+  console, or with ``aws iam update-role --role-name <ROLE>
+  --max-session-duration <SECONDS>``); and
+* the user's IAM policy to allow ``sts:AssumeRole`` on the role
+  without an MFA session. The role's trust policy can still insist
+  on MFA with ``"Condition": {"Bool": {"aws:MultiFactorAuthPresent":
+  "true"}}``, which the MFA token passed with the request satisfies.
+
+Otherwise assuming the role will fail.
+
+The ``Expiration`` printed on success is in local time. When a role
+is assumed, it is that of the role's credentials.
 
 
 
